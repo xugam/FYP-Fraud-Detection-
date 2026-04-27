@@ -7,8 +7,9 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Support\Facades\Request;
+use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -20,8 +21,12 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
+        $middleware->api(prepend: [
+            EnsureFrontendRequestsAreStateful::class,
+        ]);
+
         $middleware->alias([
-            'role' => \App\Http\Middleware\EnsureRole::class,
+            'role'         => \App\Http\Middleware\EnsureRole::class,
             'check.frozen' => \App\Http\Middleware\CheckFrozenAccount::class,
         ]);
 
@@ -33,12 +38,14 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
-    })->create();
-RateLimiter::for('api', function (Request $request) {
-    return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
-});
+    })
+    ->booted(function () {                                            // ← RateLimiter goes here
+        RateLimiter::for('api', function (Request $request) {
+            return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
+        });
 
-// Stricter limit for transfers
-RateLimiter::for('transfers', function (Request $request) {
-    return Limit::perMinute(10)->by($request->user()?->id ?: $request->ip());
-});
+        RateLimiter::for('transfers', function (Request $request) {
+            return Limit::perMinute(10)->by($request->user()?->id ?: $request->ip());
+        });
+    })
+    ->create();

@@ -18,7 +18,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Wallet (frozen check applied)
     Route::prefix('wallet')->middleware('check.frozen')->group(function () {
-        Route::get('/',        [WalletController::class, 'balance']);
+        Route::get('/', [WalletController::class, 'balance']);
         Route::post('/deposit', [WalletController::class, 'deposit']);
     });
 

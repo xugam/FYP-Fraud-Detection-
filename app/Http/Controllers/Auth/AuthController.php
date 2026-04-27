@@ -8,34 +8,46 @@ use App\Models\User;
 use App\Models\Wallet;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Exception;
+use Illuminate\Support\Facades\DB;
 
 class AuthController extends Controller
 {
     public function register(RegisterRequest $request)
     {
-        $user = User::create([
-            'name'     => $request->name,
-            'email'    => $request->email,
-            'password' => Hash::make($request->password),
-            'role'     => 'user',
-        ]);
+        DB::beginTransaction();
+        try {
+            $user = User::create([
+                'name'     => $request->name,
+                'email'    => $request->email,
+                'password' => Hash::make($request->password),
+                'role'     => 'user',
+            ]);
 
-        // Auto-create wallet
-        Wallet::create(['user_id' => $user->id, 'balance' => 0]);
+            // Auto-create wallet
+            Wallet::create(['user_id' => $user->id, 'balance' => 0]);
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+            $token = $user->createToken('auth_token')->plainTextToken;
+            DB::commit();
+        } catch (Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Registration failed.',
+                'error'   => $e->getMessage(),
+            ], 500);
+        }
 
         return response()->json([
             'message' => 'Registration successful.',
             'token'   => $token,
             'user'    => $user,
-        ], 201);
+        ], 200);
     }
 
     public function login(Request $request)
     {
         $request->validate([
-            'email'    => 'required|email',
+            'email'    => 'required|email|exists:users,email',
             'password' => 'required',
         ]);
 
