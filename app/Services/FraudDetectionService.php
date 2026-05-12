@@ -28,22 +28,22 @@ class FraudDetectionService
             $reasons[] = 'High absolute transaction amount';
         }
 
-        // Rule 3: More than 5 transactions in the last 10 minutes
+        // Rule 3: Frequency — FIXED thresholds (was too lenient)
         $recentCount = Transaction::where('sender_id', $sender->id)
             ->where('created_at', '>=', now()->subMinutes(10))
             ->count();
 
-        if ($recentCount >= 5) {
-            $score   += 25;
+        if ($recentCount >= 3) {          // ← was 5, now 3 triggers high risk
+            $score   += 50;               // ← was 25, now 50 so 3 txns = freeze
             $reasons[] = "High frequency: {$recentCount} transactions in 10 minutes";
-        } elseif ($recentCount >= 3) {
-            $score   += 10;
+        } elseif ($recentCount >= 2) {    // ← was 3, now 2 triggers medium
+            $score   += 25;
             $reasons[] = "Moderate frequency: {$recentCount} transactions in 10 minutes";
         }
 
         // Rule 4: Total sent in last hour > 50,000
         $hourlyTotal = Transaction::where('sender_id', $sender->id)
-            ->where('status', 'success')
+            ->whereIn('status', ['success', 'flagged'])
             ->where('created_at', '>=', now()->subHour())
             ->sum('amount');
 
@@ -52,22 +52,22 @@ class FraudDetectionService
             $reasons[] = 'Hourly transfer limit approached or exceeded';
         }
 
-        // Rule 5: First-time transfer (no prior successful transactions)
+        // Rule 5: First-time transfer > 1,000
         $priorTxCount = Transaction::where('sender_id', $sender->id)
             ->where('status', 'success')
             ->count();
 
         if ($priorTxCount === 0 && $amount > 1000) {
             $score   += 15;
-            $reasons[] = 'Large amount from an account with no prior transactions';
+            $reasons[] = 'Large amount from account with no prior transactions';
         }
 
-        $score = min($score, 100); // cap at 100
+        $score = min($score, 100);
 
         return [
-            'score'       => $score,
-            'reasons'     => $reasons,
-            'action'      => $this->determineAction($score),
+            'score'   => $score,
+            'reasons' => $reasons,
+            'action'  => $this->determineAction($score),
         ];
     }
 

@@ -12,10 +12,11 @@ class AdminSeeder extends Seeder
     public function run(): void
     {
         $admin = User::create([
-            'name'     => 'Super Admin',
-            'email'    => 'admin@wallet.com',
-            'password' => Hash::make('secret123'),
+            'name'     => 'Admin',
+            'email'    => 'admin@gmail.com',
+            'password' => Hash::make('password123'),
             'role'     => 'admin',
+            'email_verified_at' => now(),
         ]);
 
         Wallet::create(['user_id' => $admin->id, 'balance' => 0]);

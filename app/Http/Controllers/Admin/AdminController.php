@@ -16,7 +16,9 @@ class AdminController extends Controller
 
     public function users()
     {
-        return response()->json(User::with('wallet')->paginate(20));
+        //sent a frozed acc status
+        $users = User::where('role', 'user')->with('wallet')->with('frozenAccount')->get();
+        return response()->json($users);
     }
 
     public function transactions()
@@ -29,16 +31,14 @@ class AdminController extends Controller
     public function flaggedTransactions()
     {
         return response()->json(
-            Transaction::where('status', 'flagged')
-                ->with(['sender:id,name', 'receiver:id,name', 'riskLog'])
-                ->latest()
-                ->paginate(20)
+            Transaction::with(['sender:id,name', 'receiver:id,name'])->latest()->paginate(20)
         );
     }
 
     public function riskLogs()
     {
-        return response()->json(RiskLog::with('transaction')->latest()->paginate(20));
+        //sent a transaction details with that risk log
+        return response()->json(RiskLog::with('transaction.sender:id,name', 'transaction.receiver:id,name')->latest()->paginate(20));
     }
 
     public function analytics()
